@@ -247,8 +247,8 @@ function dibujarOverlayBienvenida() {
   let instrucciones =
     "Ajusta los rangos del micrófono abajo si es necesario.\n" +
     "• SILENCIO: Congela la deformación de las nubes.\n" +
-    "• TONOS GRAVES: Ondulación suave (permanente).\n" +
-    "• TONOS AGUDOS: Vibración errática (permanente).\n" +
+    "• TONOS GRAVES: Ondulación suave.\n" +
+    "• TONOS AGUDOS: Vibración errática.\n" +
     "• TONO MEDIO (VOZ): Retorna las nubes a su estado normal.";
   text(instrucciones, cx, cy - 55);
 
