@@ -134,28 +134,34 @@ function draw() {
     let altoBaseDinamico = 120 * escala * factorAplastamiento;
 
     // Modulación de tamaño impulsada por el sonido (graves vs agudos)
-    let variacionSonido = 0;
-    if (audioIniciado && gestorAudio.haySonido) {
-      let offsetNube = nube.xBase * 0.05 + nube.yBase * 0.05;
+    if (audioIniciado && gestorAudio.sonidoActivo) {
+      let distanciaCentro = abs(gestorAudio.balanceTono - 0.5);
 
-      // Dividir el balance de tono en intensidad para graves y agudos (estilo la interacción de ratón anterior)
-      let intensidadGrave = constrain(map(gestorAudio.balanceTono, 0.5, 0.0, 0, 1), 0, 1);
-      let intensidadAgudo = constrain(map(gestorAudio.balanceTono, 0.5, 1.0, 0, 1), 0, 1);
+      // Si el tono es de rango medio (cercano a 0.5), retorna suavemente al estado normal
+      if (distanciaCentro < 0.15) {
+        let velocidadRetorno = map(gestorAudio.volSuave, 0.005, 0.15, 0.02, 0.1, true);
+        nube.variacionSonidoGuardada = lerp(nube.variacionSonidoGuardada, 0, velocidadRetorno);
+      } else {
+        let offsetNube = nube.xBase * 0.05 + nube.yBase * 0.05;
 
-      // Graves: oscilación sinusoidal suave
-      let valGrave = sin(frameCount * 0.1 + offsetNube) * 0.12;
-      // Agudos: ruido rápido y errático
-      let valAgudo = (noise(frameCount * 0.35 + offsetNube, nube.imgIndex) - 0.5) * 2 * 0.45;
+        // Dividir el balance de tono en intensidad para graves y agudos (estilo la interacción de ratón anterior)
+        let intensidadGrave = constrain(map(gestorAudio.balanceTono, 0.5, 0.0, 0, 1), 0, 1);
+        let intensidadAgudo = constrain(map(gestorAudio.balanceTono, 0.5, 1.0, 0, 1), 0, 1);
 
-      // El volumen suavizado controla la magnitud del escalado
-      let escalaModulacion = map(gestorAudio.volSuave, 0.005, 0.15, 0.2, 1.8, true);
-      variacionSonido = (valGrave * intensidadGrave + valAgudo * intensidadAgudo) * escalaModulacion;
+        // Graves: oscilación sinusoidal suave
+        let valGrave = sin(frameCount * 0.1 + offsetNube) * 0.12;
+        // Agudos: ruido rápido y errático
+        let valAgudo = (noise(frameCount * 0.35 + offsetNube, nube.imgIndex) - 0.5) * 2 * 0.45;
 
-      // Transición amortiguada hacia el nuevo tamaño con sonido
-      nube.variacionSonidoGuardada = lerp(nube.variacionSonidoGuardada, variacionSonido, 0.2);
+        // El volumen suavizado controla la magnitud del escalado
+        let escalaModulacion = map(gestorAudio.volSuave, 0.005, 0.15, 0.2, 1.8, true);
+        let variacionSonido = (valGrave * intensidadGrave + valAgudo * intensidadAgudo) * escalaModulacion;
+
+        // Transición amortiguada hacia el nuevo tamaño con sonido
+        nube.variacionSonidoGuardada = lerp(nube.variacionSonidoGuardada, variacionSonido, 0.2);
+      }
     } else {
-      // Retornar suavemente a la escala normal (1.0) en silencio
-      nube.variacionSonidoGuardada = lerp(nube.variacionSonidoGuardada, 0, 0.08);
+      // En silencio o sin audio iniciado: MANTENER la deformación guardada (no hacer nada)
     }
 
     let multiplicadorSonido = 1 + nube.variacionSonidoGuardada;
@@ -240,10 +246,10 @@ function dibujarOverlayBienvenida() {
   textAlign(CENTER, TOP);
   let instrucciones =
     "Ajusta los rangos del micrófono abajo si es necesario.\n" +
-    "• SILENCIO: Pausa.\n" +
-    "• SONIDO / VOZ: Inicia. \n" +
-    "• TONOS GRAVES: Produce ondulaciones suaves.\n" +
-    "• TONOS AGUDOS: Produce una vibración errática.";
+    "• SILENCIO: Congela la deformación de las nubes.\n" +
+    "• TONOS GRAVES: Ondulación suave (permanente).\n" +
+    "• TONOS AGUDOS: Vibración errática (permanente).\n" +
+    "• TONO MEDIO (VOZ): Retorna las nubes a su estado normal.";
   text(instrucciones, cx, cy - 55);
 
   // Dibujar Controles de Configuración de Micrófono
@@ -400,6 +406,7 @@ class GestorAudio {
     this.antesHabiaSonido = false;
     this.centroideSuave = 800; // Frecuencia central de la voz humana aproximada
     this.balanceTono = 0.5; // Balance de tono: 0 (graves) a 1 (agudos)
+    this.sonidoActivo = false; // Indica si hay señal de entrada física activa sin suavizado
   }
 
   /**
@@ -432,6 +439,9 @@ class GestorAudio {
 
     this.antesHabiaSonido = this.haySonido;
     this.haySonido = this.volSuave > 0.005;
+    
+    // Señal física activa instantánea sin retardo de caída
+    this.sonidoActivo = volFiltrado > 0;
 
     // Análisis del espectro de frecuencia
     this.fft.analyze();
